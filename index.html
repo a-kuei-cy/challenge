@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學生閱讀挑戰平台</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans TC"', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#4F46E5', // Indigo 600
+                        secondary: '#10B981', // Emerald 500
+                        accent: '#F59E0B', // Amber 500
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 自訂動畫與毛玻璃效果 */
+        body {
+            background-color: #f3f4f6;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .fade-in {
+            animation: fadeIn 0.4s ease-in-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .quiz-card {
+            transition: all 0.3s ease;
+        }
+        .quiz-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+
+    <!-- 導覽列 -->
+    <nav class="glass-nav sticky top-0 z-50 shadow-sm">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="bg-primary text-white p-2 rounded-lg">
+                    <i class="fa-solid fa-book-open-reader text-xl"></i>
+                </div>
+                <h1 class="text-2xl font-black text-gray-800 tracking-tight">Reading<span class="text-primary">Challenge</span></h1>
+            </div>
+            
+            <!-- 手機版選單按鈕 (保留空間) -->
+            <div class="md:hidden text-gray-600 text-2xl">
+                <i class="fa-solid fa-bars"></i>
+            </div>
+
+            <!-- 電腦版導覽 -->
+            <div class="hidden md:flex space-x-2">
+                <button onclick="showSection('challenge')" class="nav-btn px-4 py-2 rounded-full font-medium text-primary bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                    <i class="fa-solid fa-gamepad mr-1"></i> 學生挑戰
+                </button>
+                <button onclick="showSection('leaderboard')" class="nav-btn px-4 py-2 rounded-full font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+                    <i class="fa-solid fa-trophy mr-1"></i> 排行榜
+                </button>
+                <button onclick="checkAdminPassword()" id="nav-admin-btn" class="nav-btn px-4 py-2 rounded-full font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+                    <i class="fa-solid fa-shield-halved mr-1"></i> 管理員
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 密碼驗證彈窗 (預設隱藏) -->
+    <div id="passwordModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center fade-in backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl transform transition-all">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-800">管理員登入</h3>
+                <p class="text-gray-500 text-sm mt-1">請輸入管理員密碼以進入控制台</p>
+            </div>
+            <div class="mb-6">
+                <input type="password" id="adminPwdInput" class="w-full border-2 border-gray-200 focus:border-red-400 focus:ring-4 focus:ring-red-50 p-3 rounded-xl transition-all text-center text-xl tracking-widest" placeholder="••••" onkeypress="if(event.key === 'Enter') verifyPassword()">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closePasswordModal()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold transition-colors">取消</button>
+                <button onclick="verifyPassword()" class="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold transition-colors shadow-md">登入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主要內容區 -->
+    <main class="container mx-auto px-4 py-8 flex-grow">
+        
+        <!-- ==================== 區塊 0：學生挑戰 (Challenge) ==================== -->
+        <section id="challenge" class="fade-in max-w-4xl mx-auto">
+            
+            <!-- 步驟 1：登入與選擇年級 -->
+            <div id="challengeLogin" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 mb-8 max-w-md mx-auto text-center transform transition-all">
+                <div class="w-20 h-20 bg-indigo-100 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4">
+                    <i class="fa-solid fa-user-graduate"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">準備好挑戰了嗎？</h2>
+                <p class="text-gray-500 mb-6">請輸入你的班級、姓名並選擇年級，開始閱讀任務！</p>
+                
+                <div class="space-y-4 mb-6 text-left">
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">你的班級</label>
+                        <input type="text" id="studentClass" class="w-full border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-indigo-50 p-3 rounded-xl transition-all" placeholder="例如：五年三班 或 503">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">你的姓名</label>
+                        <input type="text" id="studentName" class="w-full border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-indigo-50 p-3 rounded-xl transition-all" placeholder="例如：王小明">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1">選擇挑戰年級</label>
+                        <select id="studentGrade" class="w-full border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-indigo-50 p-3 rounded-xl appearance-none bg-white transition-all">
+                            <option value="3">國小三年級</option>
+                            <option value="4">國小四年級</option>
+                            <option value="5" selected>國小五年級</option>
+                            <option value="6">國小六年級</option>
+                            <option value="7">國中一年級</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="startChallenge()" class="w-full bg-primary text-white py-3 rounded-xl font-bold text-lg hover:bg-indigo-600 transition-colors shadow-md">
+                    🚀 開始挑戰
+                </button>
+            </div>
+
+            <!-- 步驟 2：閱讀與作答區 -->
+            <div id="challengeQuiz" class="hidden fade-in space-y-6">
+                <!-- 文章閱讀區 -->
+                <div class="bg-amber-50 border-l-4 border-amber-400 p-6 rounded-r-2xl shadow-sm">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">📖 閱讀文章：<span id="studentArticleTitle">烏鴉的驚人記憶力</span></h3>
+                    <div id="studentArticleContent" class="prose max-w-none text-gray-700 leading-relaxed space-y-4 text-lg whitespace-pre-wrap">
+在許多童話故事裡，烏鴉常被描繪成不聰明或帶來厄運的鳥類。然而，科學家發現，烏鴉其實是鳥類中的「天才」，牠們不僅會使用工具，還擁有驚人的記憶力！
+
+美國華盛頓大學的研究團隊曾進行過一項有趣的實驗。研究人員戴著「野人面具」在校園裡捕捉並標記了幾隻烏鴉，隨後就將牠們安全地釋放。從那天起，只要有人戴著同一款「野人面具」走進校園，這群烏鴉就會立刻聚集過來，發出刺耳的叫聲，甚至俯衝攻擊戴面具的人。相反地，如果研究人員戴著另一款「普通人面具」，烏鴉們就會安靜地待在樹上，完全不理會。
+                    </div>
+                </div>
+
+                <!-- 題目作答區 -->
+                <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-list-check text-secondary mr-2"></i> 閱讀測驗</h3>
+                    <div id="studentQuestionsContainer" class="space-y-6">
+                        <!-- JS 動態產生學生作答題目 -->
+                    </div>
+                    
+                    <div class="mt-8 text-center">
+                        <button onclick="submitChallenge()" class="bg-secondary hover:bg-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg transition-colors shadow-lg hover:-translate-y-1 transform">
+                            <i class="fa-solid fa-paper-plane mr-2"></i> 提交答案並看成績
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 步驟 3：挑戰結果 -->
+            <div id="challengeResult" class="hidden fade-in text-center py-12">
+                <div class="w-32 h-32 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6 relative shadow-inner">
+                    <i class="fa-solid fa-trophy text-6xl text-yellow-500 drop-shadow"></i>
+                    <div class="absolute -bottom-2 -right-2 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full border-2 border-white">Completed!</div>
+                </div>
+                <h2 class="text-4xl font-black text-gray-800 mb-2">挑戰完成！</h2>
+                <p class="text-xl text-gray-600 mb-6"><span id="resultStudentName" class="font-bold text-primary"></span> 同學，你的得分是：</p>
+                
+                <div class="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary mb-8 drop-shadow-sm">
+                    <span id="finalScore">0</span> <span class="text-3xl text-gray-400">分</span>
+                </div>
+                
+                <div class="flex justify-center gap-4">
+                    <button onclick="location.reload()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-bold transition-colors">
+                        <i class="fa-solid fa-rotate-right mr-2"></i> 再挑戰一次
+                    </button>
+                    <button onclick="showSection('leaderboard')" class="bg-primary hover:bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-md">
+                        <i class="fa-solid fa-medal mr-2"></i> 查看排行榜
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ==================== 區塊 1：排行榜 (Leaderboard) ==================== -->
+        <section id="leaderboard" class="hidden fade-in max-w-5xl mx-auto">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-3">🏆 閱讀榮譽榜</h2>
+                <p class="text-gray-500">看看誰是本週的閱讀大師！</p>
+            </div>
+
+            <div class="grid lg:grid-cols-3 gap-8">
+                <!-- 排行榜清單 -->
+                <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div class="bg-gradient-to-r from-accent to-yellow-400 p-4 text-white font-bold text-lg flex items-center">
+                        <i class="fa-solid fa-medal mr-2"></i> 個人積分排行榜 (Top 5)
+                    </div>
+                    <ul class="divide-y divide-gray-100">
+                        <li class="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center font-bold text-xl">1</div>
+                                <div>
+                                    <p class="font-bold text-gray-800">王小明</p>
+                                    <p class="text-xs text-gray-500">五年級</p>
+                                </div>
+                            </div>
+                            <div class="font-bold text-primary">1,250 分</div>
+                        </li>
+                        <li class="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-xl">2</div>
+                                <div>
+                                    <p class="font-bold text-gray-800">陳大宇</p>
+                                    <p class="text-xs text-gray-500">六年級</p>
+                                </div>
+                            </div>
+                            <div class="font-bold text-primary">1,120 分</div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 統計圖表區塊預留 -->
+                <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col justify-center items-center text-center">
+                    <div class="w-24 h-24 bg-blue-50 text-blue-400 rounded-full flex items-center justify-center text-4xl mb-4">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-800 mb-2">年級表現分析</h3>
+                    <p class="text-sm text-gray-500 mb-4">視覺化圖表將整合 Chart.js 顯示各年級的答題正確率與挑戰次數。</p>
+                    <button class="text-primary font-medium hover:underline text-sm">載入數據分析 <i class="fa-solid fa-arrow-right ml-1"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 區塊 2：管理員 (Admin) ==================== -->
+        <section id="admin" class="hidden fade-in max-w-6xl mx-auto">
+            <div class="bg-gray-800 rounded-2xl p-6 md:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row justify-between items-center bg-gradient-to-r from-gray-800 to-gray-700">
+                <div class="mb-4 md:mb-0">
+                    <h2 class="text-2xl font-bold flex items-center mb-1">
+                        <i class="fa-solid fa-user-shield text-accent mr-3"></i> 系統控制台
+                    </h2>
+                    <p class="text-gray-400 text-sm">管理學生作答紀錄與 AI 題庫生成</p>
+                </div>
+                <!-- 管理員子選單 (Tabs) -->
+                <div class="flex gap-2 bg-gray-700 p-1.5 rounded-xl w-full md:w-auto mt-4 md:mt-0">
+                    <button onclick="showAdminTab('generate')" id="tab-btn-generate" class="flex-1 md:flex-none px-5 py-2 rounded-lg bg-gray-600 text-white font-medium text-sm transition-all shadow-sm">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI 出題
+                    </button>
+                    <button onclick="showAdminTab('records')" id="tab-btn-records" class="flex-1 md:flex-none px-5 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-600 font-medium text-sm transition-all">
+                        <i class="fa-solid fa-users-viewfinder mr-1"></i> 作答紀錄
+                    </button>
+                </div>
+            </div>
+
+            <!-- 子分頁：AI 出題系統 -->
+            <div id="admin-generate" class="admin-tab-content fade-in">
+                <!-- 標題區 -->
+                <div class="text-center mb-8 mt-4">
+                    <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">AI 閱讀素養出題系統 ✨</h2>
+                    <p class="text-gray-500">自動分析文體，依據 PIRLS 閱讀四層次設計出有深度的題目！</p>
+                </div>
+
+                <!-- 輸入區卡片 -->
+                <div class="bg-white p-6 md:p-8 rounded-2xl shadow-lg border border-gray-100 mb-8 max-w-4xl mx-auto">
+                    <div class="grid md:grid-cols-2 gap-6 mb-6">
+                        <div class="col-span-2">
+                            <label class="flex items-center text-lg font-bold text-gray-700 mb-2">
+                                <span class="bg-indigo-100 text-primary w-8 h-8 rounded-full flex items-center justify-center mr-2 text-sm">1</span>
+                                貼上文章內容
+                            </label>
+                            <textarea id="articleInput" class="w-full border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-indigo-50 p-4 rounded-xl h-48 transition-all resize-none text-gray-700" placeholder="在此貼上您要測驗的文章內容..."></textarea>
+                        </div>
+                        
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="flex items-center text-lg font-bold text-gray-700 mb-2">
+                                <span class="bg-indigo-100 text-primary w-8 h-8 rounded-full flex items-center justify-center mr-2 text-sm">2</span>
+                                選擇學生年級
+                            </label>
+                            <div class="relative">
+                                <select id="gradeInput" class="w-full border-2 border-gray-200 focus:border-primary focus:ring-4 focus:ring-indigo-50 p-3 rounded-xl appearance-none bg-white transition-all">
+                                    <option value="3">國小三年級</option>
+                                    <option value="4">國小四年級</option>
+                                    <option value="5" selected>國小五年級</option>
+                                    <option value="6">國小六年級</option>
+                                    <option value="7">國中一年級</option>
+                                </select>
+                                <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="generateBtn" onclick="generateQuizByAI()" class="w-full bg-gradient-to-r from-primary to-indigo-500 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:from-indigo-600 hover:to-indigo-700 transition-all transform hover:-translate-y-0.5 flex justify-center items-center">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> 步驟 3：自動生成專業題目！
+                    </button>
+                </div>
+
+                <!-- 產生的題目顯示區 (預設隱藏) -->
+                <div id="quizArea" class="hidden fade-in space-y-6 max-w-4xl mx-auto">
+                    <div class="flex justify-between items-end mb-4 border-b pb-2">
+                        <h3 class="text-2xl font-bold text-gray-800"><i class="fa-solid fa-list-check text-secondary mr-2"></i>生成的題目預覽</h3>
+                        <span class="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">已應用 PIRLS 四層次</span>
+                    </div>
+                    
+                    <!-- 題目卡片容器 -->
+                    <div id="questionsContainer" class="grid gap-4">
+                        <!-- JS 動態產生題目卡片 -->
+                    </div>
+
+                    <!-- 儲存至試算表區塊 -->
+                    <div class="bg-amber-50 border border-amber-200 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center mt-8">
+                        <div class="mb-4 md:mb-0">
+                            <h4 class="font-bold text-amber-800 text-lg">對題目滿意嗎？</h4>
+                            <p class="text-amber-700 text-sm">確認無誤後，可直接將文章與題目匯出至你的 Google 試算表題庫。</p>
+                        </div>
+                        <button id="saveBtn" onclick="saveArticleToSheet()" class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-md flex items-center w-full md:w-auto justify-center">
+                            <i class="fa-solid fa-cloud-arrow-up mr-2"></i> 存入 Google 試算表題庫
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 子分頁：作答紀錄 -->
+            <div id="admin-records" class="admin-tab-content hidden fade-in">
+                <!-- 省略部分假資料表格，與之前相同 -->
+                <div class="flex justify-between items-center mb-4 mt-2">
+                    <h3 class="text-xl font-bold text-gray-800">學生測驗紀錄</h3>
+                    <div class="flex gap-2">
+                        <button class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center text-sm shadow-sm">
+                            <i class="fa-solid fa-file-csv mr-2"></i> 匯出
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div class="overflow-x-auto p-8 text-center text-gray-500">
+                        作答紀錄將從您的 Google 試算表中讀取顯示。
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="bg-white border-t py-6 mt-12 text-center text-gray-500 text-sm">
+        <p>© 2023 閱讀挑戰平台 Reading Challenge. Built for Education.</p>
+    </footer>
+
+    <!-- JavaScript 邏輯整合 -->
+    <script>
+        // --- 0. 管理員密碼設定 ---
+        const ADMIN_PASSWORD = "123"; 
+
+        // ★★★ 設定你的 Google Apps Script 網址 ★★★
+        const GAS_URL = "https://script.google.com/macros/s/你的部署ID/exec"; 
+
+        // 全域變數：儲存「目前」的題目狀態。
+        // 預設給予烏鴉的題目，當管理員按下「AI生成」後，這裡的資料會被覆蓋成新的題目！
+        let currentQuestions = [
+            { level: "層次一：提取特定訊息", text: "根據文章內容，研究人員在捕捉烏鴉時，戴著哪一種面具？", options: ["(A) 動物面具", "(B) 普通人面具", "(C) 野人面具", "(D) 小丑面具"], answer: "(C)" },
+            { level: "層次二：推論訊息", text: "為什麼五年後，校園裡「新來的」烏鴉也會攻擊戴著野人面具的人？", options: ["(A) 面具外表可怕", "(B) 老烏鴉傳遞危險資訊", "(C) 烏鴉討厭面具", "(D) 剛被抓過"], answer: "(B)" },
+            { level: "層次三：詮釋整合", text: "這篇文章最主要想傳達的核心重點是什麼？", options: ["(A) 烏鴉帶來厄運", "(B) 校園烏鴉會攻擊人", "(C) 呼籲不抓動物", "(D) 烏鴉擁有極高智慧與記憶力"], answer: "(D)" },
+            { level: "層次四：檢驗評估", text: "作者提到「烏鴉大腦只有胡桃般大小」，寫作用意為何？", options: ["(A) 突顯智慧不可思議", "(B) 說明大腦結構", "(C) 警告勿餵食胡桃", "(D) 證明發育遲緩"], answer: "(A)" }
+        ];
+
+        let currentArticleText = "在許多童話故事裡，烏鴉常被描繪成不聰明或帶來厄運的鳥類。然而，科學家發現，烏鴉其實是鳥類中的「天才」，牠們不僅會使用工具，還擁有驚人的記憶力！\n\n美國華盛頓大學的研究團隊曾進行過一項有趣的實驗。研究人員戴著「野人面具」在校園裡捕捉並標記了幾隻烏鴉，隨後就將牠們安全地釋放。從那天起，只要有人戴著同一款「野人面具」走進校園，這群烏鴉就會立刻聚集過來，發出刺耳的叫聲，甚至俯衝攻擊戴面具的人。相反地，如果研究人員戴著另一款「普通人面具」，烏鴉們就會安靜地待在樹上，完全不理會。";
+        let currentArticleTitle = "素養閱讀挑戰";
+
+        // --- 密碼與介面切換 ---
+        function checkAdminPassword() {
+            document.getElementById('passwordModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('adminPwdInput').focus(), 100); 
+        }
+
+        function verifyPassword() {
+            const pwd = document.getElementById('adminPwdInput').value;
+            if (pwd === ADMIN_PASSWORD) {
+                document.getElementById('passwordModal').classList.add('hidden');
+                document.getElementById('adminPwdInput').value = ''; 
+                showSection('admin');
+                
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.remove('text-primary', 'bg-indigo-50');
+                    btn.classList.add('text-gray-600');
+                });
+                const activeBtn = document.getElementById('nav-admin-btn');
+                if (activeBtn) {
+                    activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-100');
+                    activeBtn.classList.add('text-primary', 'bg-indigo-50');
+                }
+            } else {
+                alert('❌ 密碼錯誤！請重新輸入。');
+                document.getElementById('adminPwdInput').value = '';
+                document.getElementById('adminPwdInput').focus();
+            }
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.add('hidden');
+            document.getElementById('adminPwdInput').value = '';
+        }
+
+        function showSection(id) {
+            ['challenge', 'leaderboard', 'admin'].forEach(s => {
+                const el = document.getElementById(s);
+                if (el) el.classList.add('hidden');
+            });
+            const target = document.getElementById(id);
+            if (target) target.classList.remove('hidden');
+
+            const btns = document.querySelectorAll('.nav-btn');
+            btns.forEach(btn => {
+                btn.classList.remove('text-primary', 'bg-indigo-50');
+                btn.classList.add('text-gray-600');
+            });
+            
+            const activeBtn = document.querySelector(`button[onclick="showSection('${id}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-100');
+                activeBtn.classList.add('text-primary', 'bg-indigo-50');
+            }
+        }
+
+        function showAdminTab(tabId) {
+            document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`admin-${tabId}`).classList.remove('hidden');
+
+            const btnGenerate = document.getElementById('tab-btn-generate');
+            const btnRecords = document.getElementById('tab-btn-records');
+            const inactiveClass = ['text-gray-300', 'hover:text-white', 'hover:bg-gray-600'];
+            const activeClass = ['bg-gray-600', 'text-white', 'shadow-sm'];
+
+            [btnGenerate, btnRecords].forEach(btn => {
+                btn.classList.remove(...activeClass);
+                btn.classList.add(...inactiveClass);
+            });
+
+            const activeTabBtn = document.getElementById(`tab-btn-${tabId}`);
+            activeTabBtn.classList.remove(...inactiveClass);
+            activeTabBtn.classList.add(...activeClass);
+        }
+
+        // --- 核心：Gemini AI API 串接 ---
+        const apiKey = ""; // 執行環境會自動提供
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // 實作帶有指數退避的重試機制，確保 API 連線穩定
+        async function fetchWithRetry(url, options) {
+            let retries = 0;
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            while (retries < 5) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) return await response.json();
+                    throw new Error(`HTTP error: ${response.status}`);
+                } catch (error) {
+                    if (retries === 4) throw error;
+                    await new Promise(r => setTimeout(r, delays[retries]));
+                    retries++;
+                }
+            }
+        }
+
+        async function generateQuizByAI() {
+            const article = document.getElementById('articleInput').value;
+            const grade = document.getElementById('gradeInput').options[document.getElementById('gradeInput').selectedIndex].text;
+            const btn = document.getElementById('generateBtn');
+            
+            if(!article.trim()) {
+                alert("請先貼上文章內容喔！");
+                document.getElementById('articleInput').focus();
+                return;
+            }
+            
+            // 狀態變更：載入中
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> AI 正在努力分析文章與命題中...';
+            btn.disabled = true;
+            btn.classList.add('opacity-80', 'cursor-not-allowed');
+
+            // 準備傳送給 Gemini AI 的提示詞與設定
+            const systemPrompt = "你是一位專業的閱讀素養命題教師。請依據提供的文章與學生年級，產出 4 題單選題。題目必須嚴格涵蓋 PIRLS 四個層次（1.提取特定訊息 2.推論訊息 3.詮釋整合 4.檢驗評估），且循序漸進。每個選項的格式必須為 (A) xxx, (B) xxx, (C) xxx, (D) xxx。";
+            const userQuery = `測驗對象年級：${grade}\n\n文章內容如下：\n${article}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            questions: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        level: { type: "STRING", description: "例如：層次一：提取特定訊息" },
+                                        text: { type: "STRING", description: "題目描述內容" },
+                                        options: { type: "ARRAY", items: { type: "STRING" }, description: "包含四個選項字串的陣列" },
+                                        answer: { type: "STRING", description: "請填寫正確選項的代號，例如：(A) 或是 (C)" }
+                                    },
+                                    required: ["level", "text", "options", "answer"]
+                                }
+                            }
+                        },
+                        required: ["questions"]
+                    }
+                }
+            };
+
+            try {
+                // 發送請求給 Gemini
+                const result = await fetchWithRetry(geminiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!rawText) throw new Error("AI 回傳格式異常");
+
+                const parsedData = JSON.parse(rawText);
+                
+                if (parsedData.questions && parsedData.questions.length > 0) {
+                    // ★ 成功取得 AI 題目！更新全域變數 ★
+                    currentQuestions = parsedData.questions;
+                    currentArticleText = article;
+                    currentArticleTitle = "自訂閱讀測驗"; // 預設標題
+                    
+                    // 顯示在管理員的預覽區
+                    renderAdminQuestions(currentQuestions);
+                    document.getElementById('quizArea').classList.remove('hidden');
+                    document.getElementById('quizArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    throw new Error("AI 沒有回傳足夠的題目");
+                }
+            } catch (error) {
+                console.error("AI 命題失敗:", error);
+                alert("產生題目時發生錯誤，請稍後再試。");
+            } finally {
+                // 恢復按鈕狀態
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.classList.remove('opacity-80', 'cursor-not-allowed');
+            }
+        }
+
+        // 渲染管理員預覽區的題目
+        function renderAdminQuestions(questions) {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = ''; 
+            
+            questions.forEach((q, index) => {
+                // 確保 AI 傳回來的 answer 只有 A,B,C,D
+                const correctOptionChar = q.answer.match(/[A-D]/) ? q.answer.match(/[A-D]/)[0] : q.answer;
+
+                const cardHtml = `
+                    <div class="quiz-card bg-white border border-gray-200 p-5 rounded-xl shadow-sm">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="bg-indigo-600 text-white w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold">Q${index + 1}</span>
+                            <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">${q.level}</span>
+                        </div>
+                        <p class="font-bold text-gray-800 mb-4 text-lg">${q.text}</p>
+                        <div class="grid sm:grid-cols-2 gap-2">
+                            ${q.options.map(opt => {
+                                const isCorrect = opt.includes(`(${correctOptionChar})`);
+                                return `
+                                <div class="p-3 border rounded-lg text-sm text-gray-600 ${isCorrect ? 'border-green-400 bg-green-50 font-medium' : 'bg-gray-50'}">
+                                    ${opt} ${isCorrect ? '<i class="fa-solid fa-check text-green-500 float-right mt-1"></i>' : ''}
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        // --- 寫入 GAS 試算表 ---
+        async function saveArticleToSheet() {
+            const btn = document.getElementById('saveBtn');
+            const originalText = btn.innerHTML;
+            
+            // 使用「最新生成」的題目上傳
+            const articleData = {
+                action: "saveQuiz",
+                title: currentArticleTitle,
+                content: currentArticleText.substring(0, 100) + "...", // 擷取部分內文紀錄即可
+                q1: { level: currentQuestions[0].level, text: currentQuestions[0].text, options: currentQuestions[0].options.join(", "), answer: currentQuestions[0].answer },
+                q2: { level: currentQuestions[1].level, text: currentQuestions[1].text, options: currentQuestions[1].options.join(", "), answer: currentQuestions[1].answer },
+                q3: { level: currentQuestions[2].level, text: currentQuestions[2].text, options: currentQuestions[2].options.join(", "), answer: currentQuestions[2].answer },
+                q4: { level: currentQuestions[3].level, text: currentQuestions[3].text, options: currentQuestions[3].options.join(", "), answer: currentQuestions[3].answer }
+            };
+
+            try {
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 寫入試算表中...';
+                btn.disabled = true;
+                btn.classList.replace('bg-amber-500', 'bg-gray-400');
+
+                const response = await fetch(GAS_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+                    body: JSON.stringify(articleData)
+                });
+                
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> 寫入成功！';
+                    btn.classList.replace('bg-gray-400', 'bg-green-500');
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        btn.classList.replace('bg-green-500', 'bg-amber-500');
+                    }, 3000);
+                } else {
+                    throw new Error(result.message);
+                }
+
+            } catch (error) {
+                console.error("發送錯誤：", error);
+                alert("寫入失敗。請確認 GAS_URL 是否設定正確，且部署權限已設為「所有人」。");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.classList.replace('bg-gray-400', 'bg-amber-500');
+            }
+        }
+
+        // --- 學生端作答邏輯 ---
+        let currentStudent = { class: "", name: "", grade: "" };
+
+        function startChallenge() {
+            const classInput = document.getElementById('studentClass').value;
+            const nameInput = document.getElementById('studentName').value;
+            const gradeInput = document.getElementById('studentGrade').value;
+            
+            if (!classInput.trim() || !nameInput.trim()) {
+                alert("請完整輸入你的班級與姓名喔！");
+                return;
+            }
+            
+            currentStudent = { class: classInput, name: nameInput, grade: gradeInput };
+            
+            // 將畫面的文章標題與內容，更新為目前 AI 產出的內容
+            document.getElementById('studentArticleTitle').textContent = currentArticleTitle;
+            document.getElementById('studentArticleContent').textContent = currentArticleText;
+
+            document.getElementById('challengeLogin').classList.add('hidden');
+            document.getElementById('challengeQuiz').classList.remove('hidden');
+            
+            renderStudentQuestions();
+        }
+
+        function renderStudentQuestions() {
+            const container = document.getElementById('studentQuestionsContainer');
+            container.innerHTML = '';
+            
+            // 使用最新產生的 currentQuestions 渲染給學生
+            currentQuestions.forEach((q, index) => {
+                let optionsHtml = q.options.map((opt) => `
+                    <label class="flex items-start p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors w-full group">
+                        <div class="flex items-center h-5">
+                            <input type="radio" name="student_q_${index}" value="${opt}" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary mt-0.5">
+                        </div>
+                        <div class="ml-3 text-sm text-gray-700 group-hover:text-indigo-900 leading-tight">
+                            ${opt}
+                        </div>
+                    </label>
+                `).join('');
+
+                const cardHtml = `
+                    <div class="student-q-card bg-gray-50 border border-gray-200 p-5 rounded-xl transition-colors" data-index="${index}">
+                        <h4 class="font-bold text-gray-800 mb-4 text-lg leading-relaxed">
+                            <span class="bg-primary text-white w-7 h-7 inline-flex items-center justify-center rounded-lg mr-2 text-sm">Q${index + 1}</span>
+                            ${q.text}
+                        </h4>
+                        <div class="grid md:grid-cols-2 gap-3">
+                            ${optionsHtml}
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function submitChallenge() {
+            let score = 0;
+            const totalQuestions = currentQuestions.length;
+            const pointsPerQuestion = 100 / totalQuestions;
+            let allAnswered = true;
+
+            currentQuestions.forEach((q, index) => {
+                const selected = document.querySelector(`input[name="student_q_${index}"]:checked`);
+                const card = document.querySelector(`.student-q-card[data-index="${index}"]`);
+                
+                if (!selected) {
+                    allAnswered = false;
+                    card.classList.add('border-red-300', 'bg-red-50');
+                    setTimeout(() => card.classList.remove('border-red-300', 'bg-red-50'), 2000);
+                } else {
+                    // 檢查選項的字母 (A/B/C/D) 是否與正確答案相符
+                    const correctChar = q.answer.match(/[A-D]/) ? q.answer.match(/[A-D]/)[0] : q.answer;
+                    if (selected.value.includes(`(${correctChar})`)) {
+                        score += pointsPerQuestion;
+                    }
+                }
+            });
+
+            if (!allAnswered) {
+                alert("還有題目尚未作答完畢喔！");
+                return;
+            }
+
+            document.getElementById('challengeQuiz').classList.add('hidden');
+            document.getElementById('challengeResult').classList.remove('hidden');
+            document.getElementById('resultStudentName').textContent = currentStudent.name;
+            
+            animateValue("finalScore", 0, score, 1000);
+            saveStudentScoreToSheet(score);
+        }
+
+        async function saveStudentScoreToSheet(score) {
+            const scoreData = {
+                action: "saveScore",
+                class: currentStudent.class,
+                name: currentStudent.name,
+                grade: currentStudent.grade,
+                quizTitle: currentArticleTitle,
+                score: score
+            };
+
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify(scoreData)
+                });
+                const result = await response.json();
+                if (result.status === "success") console.log("成績已同步");
+            } catch (error) {
+                console.error("成績同步失敗:", error);
+            }
+        }
+
+        function animateValue(id, start, end, duration) {
+            if (start === end) { document.getElementById(id).innerHTML = end; return; }
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                document.getElementById(id).innerHTML = Math.floor(progress * (end - start) + start);
+                if (progress < 1) window.requestAnimationFrame(step);
+            };
+            window.requestAnimationFrame(step);
+        }
+    </script>
+</body>
+</html>
